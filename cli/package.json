@@ -1,0 +1,10 @@
+{
+  "name": "@hackaiz/cli",
+  "version": "0.1.0",
+  "description": "Authenticated Hackaiz passive analysis client",
+  "type": "module",
+  "bin": { "hackaiz": "bin/hackaiz.mjs" },
+  "files": ["bin", "README.md"],
+  "engines": { "node": ">=22" },
+  "scripts": { "test": "node --test test/*.check.mjs" }
+}

@@ -1,0 +1,46 @@
+name: Hackaiz Import Gate
+description: Static Hackaiz check of Skills, MCP configs, packages, workflows and Dockerfiles. Fails on Danger, uploads SARIF.
+author: HACKTUALIZ Inc.
+branding:
+  icon: shield
+  color: blue
+inputs:
+  path:
+    description: File or folder to check
+    default: .
+  api-key:
+    description: Hackaiz personal API key (store it as a repository secret). Each check uses credits.
+    required: true
+  language:
+    description: en or fr
+    default: en
+  fail-on-incomplete:
+    description: Fail the job when no verdict is returned (recommended)
+    default: 'true'
+outputs:
+  sarif:
+    description: Path of the SARIF file
+    value: ${{ steps.check.outputs.sarif }}
+runs:
+  using: composite
+  steps:
+    - id: check
+      shell: bash
+      env:
+        HACKAIZ_API_KEY: ${{ inputs.api-key }}
+        HK_PATH: ${{ inputs.path }}
+        HK_LANG: ${{ inputs.language }}
+        HK_STRICT: ${{ inputs.fail-on-incomplete }}
+      run: |
+        set +e
+        out="$RUNNER_TEMP/hackaiz.sarif"
+        node "$GITHUB_ACTION_PATH/cli/bin/hackaiz.mjs" check "$HK_PATH" --sarif --lang "$HK_LANG" > "$out"
+        code=$?
+        echo "sarif=$out" >> "$GITHUB_OUTPUT"
+        echo "### Hackaiz Import Gate" >> "$GITHUB_STEP_SUMMARY"
+        if [ "$code" = 2 ]; then echo "Verdict: **Danger**. Do not install." >> "$GITHUB_STEP_SUMMARY"; echo "::error::Hackaiz verdict: Danger"; exit 1; fi
+        if [ "$code" != 0 ]; then
+          echo "No verdict (error, missing key or credits). Not verified." >> "$GITHUB_STEP_SUMMARY"
+          if [ "$HK_STRICT" = true ]; then exit 1; fi; exit 0
+        fi
+        echo "No known risk pattern found by a static check. This is not a guarantee." >> "$GITHUB_STEP_SUMMARY"
