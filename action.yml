@@ -1,5 +1,5 @@
 name: Hackaiz Import Gate
-description: Hackaiz check of Skills, MCP configs, packages, workflows and Dockerfiles (rules + expert AI review). Fails on Danger, uploads SARIF.
+description: Security check of Skills, MCP configs, packages, workflows and Dockerfiles with rules and AI review.
 author: HACKTUALIZ Inc.
 branding:
   icon: shield
