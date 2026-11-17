@@ -1,5 +1,5 @@
 name: Hackaiz Import Gate
-description: Static Hackaiz check of Skills, MCP configs, packages, workflows and Dockerfiles. Fails on Danger, uploads SARIF.
+description: Hackaiz check of Skills, MCP configs, packages, workflows and Dockerfiles (rules + expert AI review). Fails on Danger, uploads SARIF.
 author: HACKTUALIZ Inc.
 branding:
   icon: shield
@@ -38,9 +38,24 @@ runs:
         code=$?
         echo "sarif=$out" >> "$GITHUB_OUTPUT"
         echo "### Hackaiz Import Gate" >> "$GITHUB_STEP_SUMMARY"
+        # List every finding (rule, file, line, message) so a Danger verdict always shows its cause.
+        node -e '
+          const fs=require("fs");let r=[];
+          try{const s=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));r=(s.runs||[]).flatMap(x=>x.results||[]);}catch{}
+          const sum=process.env.GITHUB_STEP_SUMMARY;
+          if(r.length){fs.appendFileSync(sum,"\n| Rule | File | Line | Detail |\n|---|---|---|---|\n");}
+          for(const x of r){const l=(x.locations||[])[0]?.physicalLocation||{};const f=l.artifactLocation?.uri||"";const n=l.region?.startLine||"";
+            const m=(x.message?.text||"").replace(/[|\n]/g," ");
+            fs.appendFileSync(sum,`| ${x.ruleId||""} | ${f} | ${n} | ${m} |\n`);
+            console.log(`::${x.level==="error"?"error":x.level==="note"?"notice":"warning"} file=${f},line=${n||1}::${x.ruleId||"Hackaiz"} ${m}`);}
+        ' "$out"
         if [ "$code" = 2 ]; then echo "Verdict: **Danger**. Do not install." >> "$GITHUB_STEP_SUMMARY"; echo "::error::Hackaiz verdict: Danger"; exit 1; fi
+        if [ "$code" = 3 ]; then
+          echo "Verdict: **Incomplete**. Not everything could be checked: do not treat it as safe." >> "$GITHUB_STEP_SUMMARY"; echo "::warning::Hackaiz verdict: Incomplete"
+          if [ "$HK_STRICT" = true ]; then exit 1; fi; exit 0
+        fi
         if [ "$code" != 0 ]; then
           echo "No verdict (error, missing key or credits). Not verified." >> "$GITHUB_STEP_SUMMARY"
           if [ "$HK_STRICT" = true ]; then exit 1; fi; exit 0
         fi
-        echo "No known risk pattern found by a static check. This is not a guarantee." >> "$GITHUB_STEP_SUMMARY"
+        echo "No known risk found by rules and expert review. Quality notes (if any) are listed above. This is not a guarantee." >> "$GITHUB_STEP_SUMMARY"

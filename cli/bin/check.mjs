@@ -1,5 +1,5 @@
-// `hackaiz check <path> [--sarif]`: static check of a Skill / MCP / package / workflow before installing.
-// Exit 2 on a Danger verdict so CI can block. Secret, binary and generated files are never sent.
+// `hackaiz check <path> [--sarif]`: check of a Skill / MCP / package / workflow before installing.
+// Exit 2 on Danger, 3 on Incomplete (never reported as safe), 0 otherwise. Secret, binary and generated files are never sent.
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { join, relative, basename } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -34,8 +34,13 @@ export function toSarif(result) {
   return {
     version: '2.1.0', $schema: 'https://json.schemastore.org/sarif-2.1.0.json',
     runs: [{
-      tool: { driver: { name: 'Hackaiz Import Gate', informationUri: 'https://hackaiz.com/check', rules: [...new Map((result.findings ?? []).map((f) => [f.rule, { id: f.rule, shortDescription: { text: f.title }, help: { text: f.action }, properties: { cwe: f.cwe, owasp: f.owasp } }])).values()] } },
-      results: (result.findings ?? []).map((f) => ({ ruleId: f.rule, level: level(f.severity), message: { text: `${f.title}: ${f.impact}` }, locations: [{ physicalLocation: { artifactLocation: { uri: f.file }, region: { startLine: f.line } } }] })),
+      tool: { driver: { name: 'Hackaiz Import Gate', informationUri: 'https://hackaiz.com/check', rules: [...new Map([...(result.findings ?? []).map((f) => [f.rule, { id: f.rule, shortDescription: { text: f.title }, help: { text: f.action }, properties: { cwe: f.cwe, owasp: f.owasp } }]), ...(result.quality ?? []).map((q) => [`QUALITY-${q.key}`, { id: `QUALITY-${q.key}`, shortDescription: { text: q.title }, help: { text: q.advice }, properties: { category: 'quality' } }])]).values()] } },
+      results: [
+        ...(result.findings ?? []).map((f) => ({ ruleId: f.rule, level: level(f.severity), message: { text: `${f.title}: ${f.impact}` }, locations: [{ physicalLocation: { artifactLocation: { uri: f.file }, region: { startLine: f.line } } }] })),
+        // Quality notes never change the verdict: always SARIF "note".
+        ...(result.quality ?? []).map((q) => ({ ruleId: `QUALITY-${q.key}`, level: 'note', message: { text: `${q.title}: ${q.advice}` }, locations: [{ physicalLocation: { artifactLocation: { uri: q.file }, region: { startLine: 1 } } }] })),
+      ],
+      properties: { verdict: result.verdict, complete: result.complete, aiReview: result.aiReview ?? null, headline: result.headline },
     }],
   };
 }
@@ -55,5 +60,5 @@ export async function checkCommand(target, flags, { env, fetcher, output }) {
   const data = await response.json();
   if (!response.ok) throw Error(`Hackaiz ${response.status}: ${data.error ?? 'request_failed'}`);
   output(JSON.stringify(flags.includes('--sarif') ? toSarif(data) : data, null, 2));
-  return data.verdict === 'danger' ? 2 : 0;
+  return data.verdict === 'danger' ? 2 : data.verdict === 'incomplete' || data.complete === false ? 3 : 0;
 }

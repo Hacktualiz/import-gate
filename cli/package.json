@@ -1,10 +1,32 @@
 {
   "name": "@hackaiz/cli",
-  "version": "0.1.0",
-  "description": "Authenticated Hackaiz passive analysis client",
+  "version": "0.2.0",
+  "description": "Hackaiz command-line client: run passive security analyses and check components before you install them",
   "type": "module",
-  "bin": { "hackaiz": "bin/hackaiz.mjs" },
-  "files": ["bin", "README.md"],
-  "engines": { "node": ">=22" },
-  "scripts": { "test": "node --test test/*.check.mjs" }
+  "bin": {
+    "hackaiz": "bin/hackaiz.mjs"
+  },
+  "files": [
+    "bin",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test test/*.check.mjs"
+  },
+  "license": "MIT",
+  "homepage": "https://hackaiz.com/tools",
+  "keywords": [
+    "security",
+    "cli",
+    "sast",
+    "mcp",
+    "skills",
+    "claude-code",
+    "supply-chain",
+    "hackaiz"
+  ]
 }
